@@ -30,6 +30,7 @@
 #define MORETHAN "MORETHAN"
 #define EMPTY "EMPTY"
 #define ELSE "else"
+#define WHILE "while"
 
 
 std::set< std::string > RESERVED_KEYWORDS;
@@ -478,13 +479,17 @@ public:
 	//empty statement
 	// ASTNode empty();
 	//write() arguments list
+	// write : write LPAREN variable RPAREN
 	ASTNode write();
 	//read() takes only one argument, takes input from console and store it in that variable
+	//read : read LPAREN expr() RPAREN
 	ASTNode read();
 	//conditional operator : left OPERATOR right
 	ASTNode conditional();
-	//if : LPAREN Conditional RPAREN LBACKET statement_list RBRACKET
+	//if : IF LPAREN Conditional RPAREN ( ( LBACKET statement_list RBRACKET ) | statement ) (EMPTY | ELSE ( ( LBACKET statement_list RBRACKET ) | statement ) )
 	ASTNode If();
+	//while : WHILE LPAREN conditional RPAREN ( ( LBACKET statement_list RBRACKET ) | statement )
+	ASTNode While();
 
 	ASTNode parse()
 	{
@@ -531,6 +536,8 @@ ASTNode Parser::statement()
 	}
 	else if(current_token._type() == IF)
 		node = If();
+	else if(current_token._type() == WHILE)
+		node = While();
 	// else node = empty();
 	else error();
 	return node;
@@ -586,7 +593,6 @@ ASTNode Parser::statement_list()
 
 ASTNode Parser::factor()
 {
-	// std::cout<<"factor called  current_token._value = "<<current_token._value()<<"\n";
 	if(current_token._type() == INTEGER)
 	{
 		ASTNode node(current_token);
@@ -651,22 +657,19 @@ ASTNode Parser::term()
 			temp = ASTNode(Token(MOD, "%"));
 		}
 		else break;
+		//child[1] holds value to be multiplied/divided from child[0]
 		temp.make_child(node);
 		temp.make_child(factor());
 		node = temp;
 	}
-	// std::cout<<"term returning\n";
-	// node.show(0);
 	return node;
 }
 
 ASTNode Parser::expr()
 {
-	// std::cout<<"expr called\n";
 	ASTNode node = term();
 	while(true)
 	{
-		// std::cout<<"in expr loop"<<std::endl;
 		ASTNode temp;
 		if(current_token._type() == PLUS)
 		{
@@ -679,18 +682,11 @@ ASTNode Parser::expr()
 			temp = ASTNode(Token(MINUS, "-"));
 		}
 		else break;
-		// std::cout<<"one"<<std::endl;
+		//child[1] holds value to be added/subtracted from child[0]
 		temp.make_child(node);
-		// std::cout<<"two"<<std::endl;
 		temp.make_child(term());
-		// std::cout<<"three"<<std::endl;
 		node = temp;
-		// temp.show();
-		// std::cout<<"four"<<std::endl;
-		// node.show();
 	}
-	// std::cout<<"expr returning"<<std::endl;
-	// node.show(0);
 	return node;
 }
 
@@ -699,7 +695,7 @@ ASTNode Parser::write()
 	eat(WRITE);
 	eat(LPAREN);
 	ASTNode node(Token(WRITE, WRITE));
-	node.make_child(expr());
+	node.make_child(expr()); //child[0] holds expr() to be printed
 	eat(RPAREN);
 	return node;
 }
@@ -709,13 +705,15 @@ ASTNode Parser::read()
 	eat(READ);
 	eat(LPAREN);
 	ASTNode node(Token(READ, READ));
-	node.make_child(variable());
+	node.make_child(variable()); //child[0] holds variable whose value is to be taken as input
 	eat(RPAREN);
 	return node;
 }
 
 ASTNode Parser::If()
 {
+	//child[0] holds conditional statement, and child[1] holds statement_list to be executed if conditional returns true
+	//child[2] stores ELSE part
 	eat(IF);
 	eat(LPAREN);
 	ASTNode node(Token(IF, IF));
@@ -746,6 +744,8 @@ ASTNode Parser::If()
 
 ASTNode Parser::conditional()
 {
+	//child[0] holds Left Hand Side of conditional
+	//child[1] holds Right Hand Side of conditional
 	ASTNode node;
 	ASTNode left = expr();
 	if(current_token._type() == EQUALITY)
@@ -769,6 +769,23 @@ ASTNode Parser::conditional()
 	return node;
 }
 
+ASTNode Parser::While()
+{
+	//child[0] holds conditional statement, and child[1] holds statement_list to be executed while conditional returns true
+	eat(WHILE);
+	eat(LPAREN);
+	ASTNode node(Token(WHILE, WHILE));
+	node.make_child(conditional());
+	eat(RPAREN);
+	if(current_token._type() == LBRACKET)
+	{
+		eat(LBRACKET);
+		node.make_child(statement_list());
+		eat(RBRACKET);
+	}
+	else node.make_child(statement());
+	return node;
+}
 
 
 
@@ -1037,6 +1054,18 @@ public:
 		{
 			return Token(INTEGER, "0");
 		}
+
+		if(node._token()._type() == WHILE)
+		{
+			Token token = visit(*node.child[0]);
+			Token temp;
+			while(token._value() == "1") //if conditional() returns 1(means TRUE) then execute statement_list, else do nothing
+			{
+				temp = visit(*node.child[1]);
+				token = visit(*node.child[0]);
+			}
+			return temp;
+		}
 	}
 
 	Token interpret()
@@ -1064,6 +1093,7 @@ int main(int argc, char const *argv[])
 	RESERVED_KEYWORDS.insert("read");
 	RESERVED_KEYWORDS.insert("if");
 	RESERVED_KEYWORDS.insert("else");
+	RESERVED_KEYWORDS.insert("while");
 
 
 	if(argc < 2)

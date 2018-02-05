@@ -1,3 +1,0 @@
-if(11 < 2) write("one");
-else if("222" > 111)	write("two");
-else write("three");
