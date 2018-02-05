@@ -4,9 +4,11 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <fstream>
 
 //Token types
 #define INTEGER "INTEGER"
+#define STRING "STRING"
 #define PLUS "PLUS"
 #define MINUS "MINUS"
 #define MUL "MUL"
@@ -18,10 +20,21 @@
 #define ASSIGN "ASSIGN"
 #define VARIABLE "VARIABLE"
 #define STATEMENT_LIST "STATEMENT_LIST"
+#define WRITE "write"
+#define READ "read"
+#define EQUALITY "EQUALITY"
+#define IF "if"
+#define LBRACKET "LBRACKET"
+#define RBRACKET "RBRACKET"
+#define LESSTHAN "LESSTHAN"
+#define MORETHAN "MORETHAN"
+#define EMPTY "EMPTY"
+#define ELSE "else"
 
 
 std::set< std::string > RESERVED_KEYWORDS;
 std::map<std::string, std::string> GLOBAL_SCOPE;
+std::map<std::string, std::string> VARIABLE_TYPES;
 
 
 class Token
@@ -81,7 +94,7 @@ private:
 	//current char at text[pos]
 	char current_char;
 	//current index of text to be tokenized
-	int pos, peek_pos;
+	int pos;
 
 public:
 	Lexer()
@@ -107,10 +120,16 @@ public:
 
 	//Ignores whitespaces and put pos pointer to a non-whitespace character
 	void skip_whitespaces();
+	//Ignores comments
+	void skip_comments();
 	//Advances position of pos pointer in text, and check if EOF reached
 	void advance_pos();
 	//returns a multi-digit integer in form of a string starting at pos, and shift pos to next pointer
 	std::string integer();
+	//returns a string which is present under double quotes in bird
+	std::string get_string();
+	//get arguments for write()
+	void write_arg();
 	//Most important function in Lexical analyzer.
 	//This method breaks the text into tokens, and returns a token starting at pos
 	Token get_next_token();
@@ -121,10 +140,22 @@ public:
 void Lexer::skip_whitespaces()
 {
 	//as the name suggests, skip all whitespaces till any new character is encountered
-	while(text[pos] == ' ')
+	while(text[pos] == ' ' or text[pos] == '\t' or text[pos] == '\n')
 	{
 		advance_pos();
 	}
+}
+
+void Lexer::skip_comments()
+{
+	advance_pos();
+	advance_pos();
+	while((text[pos] != '/' or peek() != '/') and text[pos] != EOF)
+	{
+		advance_pos();
+	}
+	advance_pos();
+	advance_pos();
 }
 
 void Lexer::advance_pos()
@@ -145,17 +176,43 @@ std::string Lexer::integer()
 		str.push_back(current_char);
 		advance_pos();
 	}
+	// std::cout<<"Lexer: integer():  str = "<<str<<"   current_char = "<<current_char<<"\n";
+	if(current_char == '.')
+	{
+		str.push_back(current_char);
+		advance_pos();
+		while(current_char>=48 and current_char<=57)
+		{
+			str.push_back(current_char);
+			advance_pos();
+		}
+		// std::cout<<"Double value here  str = "<<str<<"\n";		
+	}
+	return str;
+}
+
+std::string Lexer::get_string()
+{
+	// std::cout<<"get_string()\n";
+	std::string str;
+	advance_pos();
+	while(current_char != '\"')
+	{
+		// std::cout<<"current_char = "<<current_char<<"\n";
+		str.push_back(current_char);
+		advance_pos();
+	}
+	advance_pos();
 	return str;
 }
 
 //Only peeks into input buffer without actually consuming the next character
 char Lexer::peek()
 {
-	peek_pos++;
 	//if peek_pos past the end of text, return EOF
-	if(peek_pos >= text.length())
+	if(pos+1 >= text.length())
 		return EOF;
-	else return text[peek_pos];
+	else return text[pos+1];
 }
 
 Token Lexer::_id()
@@ -181,6 +238,14 @@ Token Lexer::get_next_token()
 	//ignore whitespaces
 	skip_whitespaces();
 
+	//skip comments
+	if(current_char == '/' and peek() == '/')
+	{
+		// std::cout<<"comment aaya    current_char = "<<current_char<<"   pos = "<<pos<<"\n";
+		skip_comments();
+		// std::cout<<"comment gone    current_char = "<<current_char<<"   pos = "<<pos<<"\n";
+	}
+
 	std::string temp_str;
 
 	//if current_char is an integer, create an integer token and increment pos
@@ -188,8 +253,7 @@ Token Lexer::get_next_token()
 	{
 		// std::cout<<"yup int here\n";
 		temp_str = integer();//remember integer() returned multi-digit interger in form of a string
-		Token token(INTEGER, temp_str);
-		return token;
+		return Token(INTEGER, temp_str);
 	}
 
 	//if token is + operator
@@ -197,9 +261,8 @@ Token Lexer::get_next_token()
 	{
 		// std::cout<<"plus here\n";
 		temp_str.push_back(current_char);
-		Token token(PLUS, temp_str);
 		advance_pos();
-		return token;
+		return Token(PLUS, temp_str);
 	}
 
 	//if token is - operator
@@ -207,9 +270,8 @@ Token Lexer::get_next_token()
 	{
 		// std::cout<<"minus here\n";
 		temp_str.push_back(current_char);
-		Token token(MINUS, temp_str);
 		advance_pos();
-		return token;
+		return Token(MINUS, temp_str);
 	}
 
 	//if token is * operator
@@ -217,9 +279,8 @@ Token Lexer::get_next_token()
 	{
 		// std::cout<<"mul here\n";
 		temp_str.push_back(current_char);
-		Token token(MUL, temp_str);
 		advance_pos();
-		return token;
+		return Token(MUL, temp_str);
 	}
 
 	//if token is / operator
@@ -227,9 +288,8 @@ Token Lexer::get_next_token()
 	{
 		// std::cout<<"div here\n";
 		temp_str.push_back(current_char);
-		Token token(DIV, temp_str);
 		advance_pos();
-		return token;
+		return Token(MUL, temp_str);
 	}
 
 	//if token is % operator
@@ -237,9 +297,8 @@ Token Lexer::get_next_token()
 	{
 		// std::cout<<"mod here\n";
 		temp_str.push_back(current_char);
-		Token token(MOD, temp_str);
 		advance_pos();
-		return token;
+		return Token(MOD, temp_str);
 	}
 
 	//if token is ( left parenthesis
@@ -247,9 +306,8 @@ Token Lexer::get_next_token()
 	{
 		// std::cout<<"lparen here\n";
 		temp_str.push_back(current_char);
-		Token token(LPAREN, temp_str);
 		advance_pos();
-		return token;
+		return Token(LPAREN, temp_str);
 	}
 
 	//if token is ) right paranthesis
@@ -257,9 +315,8 @@ Token Lexer::get_next_token()
 	{
 		// std::cout<<"RPAREN here\n";
 		temp_str.push_back(current_char);
-		Token token(RPAREN, temp_str);
 		advance_pos();
-		return token;
+		return Token(RPAREN, temp_str);
 	}
 
 	//EOF reached
@@ -267,15 +324,34 @@ Token Lexer::get_next_token()
 	{
 		temp_str.push_back(current_char);
 		// std::cout<<"File ends here\n";
-		Token token("EOF", temp_str);//some work needs to be done here ;p
-		return token;
+		return Token("EOF", temp_str);//some work needs to be done here ;p
 	}
 
 	//indentifier: some variable or a keyword
 	if((current_char >= 65 and current_char <=90) or (current_char >= 97 and current_char <=122))
 		return _id();
 
-	if(current_char == '=')
+	if(current_char == '=' and peek() == '=')
+	{
+		advance_pos();
+		advance_pos();
+		return Token(EQUALITY, "==");
+	}
+
+	if(current_char == '<')
+	{
+		advance_pos();
+		return Token(LESSTHAN, "<");
+	}
+
+	if(current_char == '>')
+	{
+		advance_pos();
+		return Token(MORETHAN, ">");
+	}
+
+	//Assignment operator
+	if(current_char == '=' and peek() != '=')
 	{
 		Token token(ASSIGN, "=");
 		advance_pos();
@@ -288,6 +364,23 @@ Token Lexer::get_next_token()
 		return Token(SEMI, ";");
 	}
 
+	if(current_char == '{')
+	{
+		advance_pos();
+		return Token(LBRACKET, "{");
+	}
+
+	if(current_char == '}')
+	{
+		advance_pos();
+		return Token(RBRACKET, "}");
+	}
+
+	if(current_char == '\"')
+	{
+		temp_str = get_string();
+		return Token(STRING, temp_str);
+	}
 
 	error();
 }
@@ -384,12 +477,20 @@ public:
 	ASTNode statement_list();
 	//empty statement
 	// ASTNode empty();
+	//write() arguments list
+	ASTNode write();
+	//read() takes only one argument, takes input from console and store it in that variable
+	ASTNode read();
+	//conditional operator : left OPERATOR right
+	ASTNode conditional();
+	//if : LPAREN Conditional RPAREN LBACKET statement_list RBRACKET
+	ASTNode If();
 
 	ASTNode parse()
 	{
 		ASTNode node = statement_list();
-		std::cout<<"AST is as follows:\n";
-		node.show(0);
+		// std::cout<<"AST is as follows:\n";
+		// node.show(0);
 		return node;
 	}	
 };
@@ -410,9 +511,26 @@ void Parser::eat(std::string token_type)
 
 ASTNode Parser::statement()
 {
+	// std::cout<<"statement() called\n";
 	ASTNode node;
 	if(current_token._type() == VARIABLE)
+	{
+		// std::cout<<"assignment_statement h ye toh\n";
 		node = assignment_statement();
+		eat(SEMI);
+	}
+	else if(current_token._type() == WRITE)
+	{
+		node = write();
+		eat(SEMI);
+	}
+	else if(current_token._type() == READ)
+	{
+		node = read();
+		eat(SEMI);
+	}
+	else if(current_token._type() == IF)
+		node = If();
 	// else node = empty();
 	else error();
 	return node;
@@ -420,12 +538,15 @@ ASTNode Parser::statement()
 
 ASTNode Parser::assignment_statement()
 {
+	// std::cout<<"assignment_statement() called\n";
 	ASTNode left = variable();
 	eat(ASSIGN);
 	ASTNode right = expr();
 	ASTNode node(Token(ASSIGN, "="));
+	// node.show(0);
 	node.make_child(left);
 	node.make_child(right);
+	// node.show(0);
 	return node;
 }
 
@@ -456,10 +577,9 @@ ASTNode Parser::statement_list()
 	// 	else std::cout<<"Program parsed\n";
 
 	// }
-	while(current_token._type() != "EOF")
+	while(current_token._type() != "EOF" and current_token._type() != RBRACKET)
 	{
 		node.make_child(statement());
-		eat(SEMI);
 	}
 	return node;
 }
@@ -497,6 +617,12 @@ ASTNode Parser::factor()
 	else if(current_token._type() == VARIABLE)
 	{
 		ASTNode node(variable());
+		return node;
+	}
+	else if(current_token._type() == STRING)
+	{
+		ASTNode node(current_token);
+		eat(STRING);
 		return node;
 	}
 	else error();
@@ -568,9 +694,80 @@ ASTNode Parser::expr()
 	return node;
 }
 
+ASTNode Parser::write()
+{
+	eat(WRITE);
+	eat(LPAREN);
+	ASTNode node(Token(WRITE, WRITE));
+	node.make_child(expr());
+	eat(RPAREN);
+	return node;
+}
 
+ASTNode Parser::read()
+{
+	eat(READ);
+	eat(LPAREN);
+	ASTNode node(Token(READ, READ));
+	node.make_child(variable());
+	eat(RPAREN);
+	return node;
+}
 
+ASTNode Parser::If()
+{
+	eat(IF);
+	eat(LPAREN);
+	ASTNode node(Token(IF, IF));
+	node.make_child(conditional());
+	eat(RPAREN);
+	if(current_token._type() == LBRACKET)
+	{
+		eat(LBRACKET);
+		node.make_child(statement_list());
+		eat(RBRACKET);
+	}
+	else node.make_child(statement());
+	//if ELSE part is present, then make it child, otherwise make empty statement as ELSE part
+	if(current_token._type() == ELSE)
+	{
+		eat(ELSE);
+		if(current_token._type() == LBRACKET)
+		{
+			eat(LBRACKET);
+			node.make_child(statement_list());
+			eat(RBRACKET);
+		}
+		else node.make_child(statement());
+	}
+	else node.make_child(Token(EMPTY, EMPTY));
+	return node;
+}
 
+ASTNode Parser::conditional()
+{
+	ASTNode node;
+	ASTNode left = expr();
+	if(current_token._type() == EQUALITY)
+	{
+		node = Token(EQUALITY, EQUALITY);
+		eat(EQUALITY);
+	}
+	else if(current_token._type() == LESSTHAN)
+	{
+		node = Token(LESSTHAN, LESSTHAN);
+		eat(LESSTHAN);
+	}
+	else if(current_token._type() == MORETHAN)
+	{
+		node = Token(MORETHAN, MORETHAN);
+		eat(MORETHAN);
+	}
+	else error();
+	node.make_child(left);
+	node.make_child(expr());
+	return node;
+}
 
 
 
@@ -619,6 +816,7 @@ public:
 		{
 			Token token = visit(*node.child[1]);
 			GLOBAL_SCOPE[node.child[0]->_token()._value()] = token._value();
+			VARIABLE_TYPES[node.child[0]->_token()._value()] = token._type();
 			return (Token(INTEGER, "0"));
 		}
 
@@ -627,7 +825,13 @@ public:
 			auto it = GLOBAL_SCOPE.find(node._token()._value());
 			if(it == GLOBAL_SCOPE.end())
 				error("Garbage value in "+node._token()._value());
-			return Token(INTEGER, it->second);
+			auto i = VARIABLE_TYPES.find(node._token()._value());
+			if(i == GLOBAL_SCOPE.end())
+				error("Error while determining datatype of "+node._token()._value());
+			if(i->second == INTEGER)
+				return Token(INTEGER, it->second);
+			else if(i->second == STRING)
+				return Token(STRING, it->second);
 		}
 
 		if(node._token()._type() == INTEGER)
@@ -635,21 +839,41 @@ public:
 			return node._token();
 		}
 
+		if(node._token()._type() == STRING)
+		{
+			return node._token();
+		}
+
 		//Unary plus or binary plus
 		if(node._token()._type() == PLUS)
 		{
-			//Unary Plus
+
+			//Unary Plus: Applicable for both integer addition and string concatanation
 			if(node.child.size() == 1)
 			{
 				return visit(*(node.child[0]));
 			}
-			//Binary Plus
+
+			Token temp1, temp2;
+			temp1 = visit(*(node.child[0]));
+			temp2 = visit(*(node.child[1]));
+
+			//if any of child is string, then do simple string concatanation
+			if(temp1._type() == STRING or temp2._type() == STRING)
+			{
+				result = temp1._value() + temp2._value();
+				return Token(STRING, result);
+			}
+			//INTEGER ADDITION
 			else
 			{
-				Token temp1, temp2;
-				temp1 = visit(*(node.child[0]));
-				temp2 = visit(*(node.child[1]));
-				result = std::to_string(std::stoi(temp1._value()) + std::stoi(temp2._value()));
+				std::string str1 = temp1._value();
+				std::string str2 = temp2._value();
+				//If both operands are integer only then return without decimals
+				if(str1.find('.') == std::string::npos and str2.find('.') == std::string::npos)
+					result = std::to_string(std::stoi(temp1._value()) + std::stoi(temp2._value()));
+				//if any of th operands is double type, then return with decimals
+				else result = std::to_string(std::stod(temp1._value()) + std::stod(temp2._value()));
 				return Token(INTEGER, result);				
 			}
 		}
@@ -661,7 +885,10 @@ public:
 			if(node.child.size() == 1)
 			{
 				Token temp = visit(*(node.child[0]));
-				result = std::to_string( - std::stoi(temp._value()));
+				std::string str = temp._value();
+				if(str.find('.') == std::string::npos)
+					result = std::to_string( - std::stoi(temp._value()));
+				else result = std::to_string( - std::stod(temp._value()));
 				return Token(INTEGER, result);
 			}
 			//Binary Minus
@@ -670,7 +897,13 @@ public:
 				Token temp1, temp2;
 				temp1 = visit(*(node.child[0]));
 				temp2 = visit(*(node.child[1]));
-				result = std::to_string(std::stoi(temp1._value()) - std::stoi(temp2._value()));
+				std::string str1 = temp1._value();
+				std::string str2 = temp2._value();
+				//If both operands are integer only then return without decimals
+				if(str1.find('.') == std::string::npos and str2.find('.') == std::string::npos)
+					result = std::to_string(std::stoi(temp1._value()) - std::stoi(temp2._value()));
+				//if any of th operands is double type, then return wiht decimals
+				else result = std::to_string(std::stod(temp1._value()) - std::stod(temp2._value()));
 				return Token(INTEGER, result);
 			}
 		}
@@ -680,7 +913,13 @@ public:
 			Token temp1, temp2;
 			temp1 = visit(*(node.child[0]));
 			temp2 = visit(*(node.child[1]));
-			result = std::to_string(std::stoi(temp1._value()) * std::stoi(temp2._value()));
+			std::string str1 = temp1._value();
+			std::string str2 = temp2._value();
+			//If both operands are integer only then do integer multiplication and return without decimals
+			if(str1.find('.') == std::string::npos and str2.find('.') == std::string::npos)
+				result = std::to_string(std::stoi(temp1._value()) * std::stoi(temp2._value()));
+			//if any of th operands is double type, then return with decimal digits
+			else result = std::to_string(std::stod(temp1._value()) * std::stod(temp2._value()));
 			return Token(INTEGER, result);
 		}
 		
@@ -689,7 +928,13 @@ public:
 			Token temp1, temp2;
 			temp1 = visit(*(node.child[0]));
 			temp2 = visit(*(node.child[1]));
-			result = std::to_string(std::stoi(temp1._value()) / std::stoi(temp2._value()));
+			std::string str1 = temp1._value();
+			std::string str2 = temp2._value();
+			//If both operands are integer only then do integer division and return quotient of division
+			if(str1.find('.') == std::string::npos and str2.find('.') == std::string::npos)
+				result = std::to_string(std::stoi(temp1._value()) / std::stoi(temp2._value()));
+			//if any of th operands is double type, do double division
+			else result = std::to_string(std::stod(temp1._value()) / std::stod(temp2._value()));
 			return Token(INTEGER, result);
 		}
 		
@@ -701,7 +946,97 @@ public:
 			result = std::to_string(std::stoi(temp1._value()) % std::stoi(temp2._value()));
 			return Token(INTEGER, result);
 		}
-		
+
+		if(node._token()._type() == WRITE)
+		{
+			Token token = visit(*node.child[0]);
+			std::cout<<token._value();
+			return Token(INTEGER, "0");
+		}
+
+		if(node._token()._type() == READ)
+		{
+			std::string str, var;
+			int dec_count = 0; //to count number of dots '.' in input
+			var = node.child[0]->_token()._value(); //var stores name of variable
+			std::getline(std::cin, str); //str stores value of var
+			GLOBAL_SCOPE[var] = str;
+			//flag = true means input is string type, flag = false means input is integer type
+			bool flag = false;
+			for(auto it = str.begin(); it != str.end(); it++)
+			{
+				if((*it < 48 or *it > 57) and *it != '.')
+					flag = true;
+				if(*it == '.')
+					dec_count++;
+			}
+			//One decimal is allowed in integer, two decimal points means STRING
+			if(dec_count > 1)
+				flag = true;
+			auto it = VARIABLE_TYPES.find(var);
+			//if input is a string, no matter what was earlier datatype, new datatype of var will be STRING
+			if(flag)
+				VARIABLE_TYPES[var] = STRING;
+			//input is a number and initially var was not used or has INTEGER datatype
+			else if(it == VARIABLE_TYPES.end() or it->second == INTEGER)
+				VARIABLE_TYPES[var] = INTEGER;
+			else VARIABLE_TYPES[var] = STRING;
+			return Token(INTEGER, "0");
+		}
+
+		if(node._token()._type() == IF)
+		{
+			Token token = visit(*node.child[0]);
+			Token temp;
+			if(token._value() == "1") //if conditional() returns 1(means TRUE) then execute statement_list, else do nothing
+				temp = visit(*node.child[1]);
+			else temp = visit(*node.child[2]); //else part
+			return temp;
+		}
+
+		if(node._token()._type() == EQUALITY)
+		{
+			Token token0 = visit(*node.child[0]);
+			Token token1 = visit(*node.child[1]);
+			if(token0._value() == token1._value() and token0._type() == token1._type())
+				return Token(INTEGER, "1");
+			else return Token(INTEGER, "0");
+		}
+
+		if(node._token()._type() == LESSTHAN)
+		{
+			Token token0 = visit(*node.child[0]);
+			Token token1 = visit(*node.child[1]);
+			if(token0._type() != token1._type())
+			{
+				error("Comparing different datatypes");
+			}
+			else if(token0._type() == INTEGER and std::stod(token0._value()) < std::stod(token1._value()))
+				return Token(INTEGER, "1");
+			else if(token0._type() == STRING and token0._value() < token1._value())
+				return Token(INTEGER, "1");
+			else return Token(INTEGER, "0");
+		}
+
+		if(node._token()._type() == MORETHAN)
+		{
+			Token token0 = visit(*node.child[0]);
+			Token token1 = visit(*node.child[1]);
+			if(token0._type() != token1._type())
+			{
+				error("Comparing different datatypes");
+			}
+			else if(token0._type() == INTEGER and std::stod(token0._value()) > std::stod(token1._value()))
+				return Token(INTEGER, "1");
+			else if(token0._type() == STRING and token0._value() > token1._value())
+				return Token(INTEGER, "1");
+			else return Token(INTEGER, "0");
+		}
+
+		if(node._token()._type() == EMPTY)
+		{
+			return Token(INTEGER, "0");
+		}
 	}
 
 	Token interpret()
@@ -724,25 +1059,60 @@ public:
 
 int main(int argc, char const *argv[])
 {
-	GLOBAL_SCOPE["a"] = "devrari";
-	std::string text;
-	while(true)
+
+	RESERVED_KEYWORDS.insert("write");
+	RESERVED_KEYWORDS.insert("read");
+	RESERVED_KEYWORDS.insert("if");
+	RESERVED_KEYWORDS.insert("else");
+
+
+	if(argc < 2)
 	{
-		std::cout<<"Enter input   ";
-		std::getline(std::cin, text);
-		Lexer lexer(text);
-		Parser parser(lexer);
-		Interpreter interpreter(parser);
+		std::cout<<"Please Enter name of file as commandline argument\n";
+		exit(0);
+	}
+
+	std::string text, temp;
+	std::ifstream file;
+	file.open(argv[1]);
+
+	while(std::getline(file, temp))
+	{
+		text += temp;
+	}
+	file.close();
+	Lexer lexer(text);
+	Parser parser(lexer);
+	Interpreter interpreter(parser);
+	
+	if(argc == 3)
+		temp = argv[2]; //to create C++ string class object, easier to compare
+	else temp = "devrari"; //Why use garbage, when you can use your name :p
+	//Show internal details
+	if(temp == "details")
+	{
+		ASTNode tree = parser.parse();
+		std::cout<<"AST :\n";
+		tree.show(0);
+		std::cout<<"Starts Interpreting\n***************************************************\n";
 		Token result = interpreter.interpret();
-		if(result._value() == "0")
-			std::cout<<"Interpreted Successfully :)\n";
-		else std::cout<<"Non-zero return by Interpreter\n";
+		std::cout<<"\n***************************************************\nStops Interpreting\n\n";
+		std::cout<<"Status: "<<((result._value() == "0")?"Success\n":"Failed\n\n");		
 		std::cout<<"GLOBAL_SCOPE:\n";
 		for(auto it = GLOBAL_SCOPE.begin(); it!= GLOBAL_SCOPE.end(); it++)
 		{
 			std::cout<<it->first<<"  "<<it->second<<"\n";
 		}
-		std::cout<<"\n\n";
+		std::cout<<"VARIABLE_TYPES:\n";
+		for(auto it = VARIABLE_TYPES.begin(); it!= VARIABLE_TYPES.end(); it++)
+		{
+			std::cout<<it->first<<"  "<<it->second<<"\n";
+		}		
+	}
+	//only runs code
+	else
+	{
+		Token result = interpreter.interpret();
 	}
 	return 0;
 }
