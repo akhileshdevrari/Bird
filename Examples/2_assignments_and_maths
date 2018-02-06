@@ -1,0 +1,10 @@
+a = 10;
+b = (a+100*2-30)/5;
+c = a/3;
+d = a/3.0;
+e = c+d+"lol";
+write("a = "+a+endl);
+write("b = "+b+endl);
+write("c = "+c+endl);
+write("d = "+d+endl);
+write("e = "+f+endl);

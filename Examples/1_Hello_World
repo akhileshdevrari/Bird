@@ -1,0 +1,7 @@
+write("Hello World"+endl);
+write("Enter your name"+endl);
+read(name);
+write("Nice to meet you "+name+endl);
+
+//this is a comment//
+//comments will be surrounded by two consecutive forward slashes i.e '/' on both sides //

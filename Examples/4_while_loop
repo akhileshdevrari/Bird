@@ -1,0 +1,6 @@
+a = 5;
+while(a > 0)
+{
+	write("a = "+a+endl);
+	a = a-1;
+}

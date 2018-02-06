@@ -1,3 +1,7 @@
+////////////////////////////////////////////////////////////////////////////////////////////
+//	WINGS : Interpreter for BIRD programming language
+////////////////////////////////////////////////////////////////////////////////////////////
+
 #include <iostream>
 #include <string>
 #include <stdexcept>
@@ -31,12 +35,18 @@
 #define EMPTY "EMPTY"
 #define ELSE "else"
 #define WHILE "while"
+#define ENDL "endl"
 
-
+//Containers to store reserved keywords, variables : value and types
 std::set< std::string > RESERVED_KEYWORDS;
 std::map<std::string, std::string> GLOBAL_SCOPE;
 std::map<std::string, std::string> VARIABLE_TYPES;
 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////
+//	LEXER
+////////////////////////////////////////////////////////////////////////////////////////////
 
 class Token
 {
@@ -79,9 +89,6 @@ public:
 		return type;
 	}
 };
-
-
-
 
 
 
@@ -234,17 +241,13 @@ Token Lexer::_id()
 
 Token Lexer::get_next_token()
 {
-	// std::cout<<"get_next_token called\n";
-
 	//ignore whitespaces
 	skip_whitespaces();
 
 	//skip comments
-	if(current_char == '/' and peek() == '/')
+	while(current_char == '/' and peek() == '/')
 	{
-		// std::cout<<"comment aaya    current_char = "<<current_char<<"   pos = "<<pos<<"\n";
 		skip_comments();
-		// std::cout<<"comment gone    current_char = "<<current_char<<"   pos = "<<pos<<"\n";
 	}
 
 	std::string temp_str;
@@ -290,7 +293,7 @@ Token Lexer::get_next_token()
 		// std::cout<<"div here\n";
 		temp_str.push_back(current_char);
 		advance_pos();
-		return Token(MUL, temp_str);
+		return Token(DIV, temp_str);
 	}
 
 	//if token is % operator
@@ -390,17 +393,9 @@ Token Lexer::get_next_token()
 
 
 
-
-
-
-
-
-
-
-
-
-
-//PARSER
+////////////////////////////////////////////////////////////////////////////////////////////
+//	PARSER
+////////////////////////////////////////////////////////////////////////////////////////////
 
 class ASTNode
 {
@@ -494,8 +489,6 @@ public:
 	ASTNode parse()
 	{
 		ASTNode node = statement_list();
-		// std::cout<<"AST is as follows:\n";
-		// node.show(0);
 		return node;
 	}	
 };
@@ -516,11 +509,9 @@ void Parser::eat(std::string token_type)
 
 ASTNode Parser::statement()
 {
-	// std::cout<<"statement() called\n";
 	ASTNode node;
 	if(current_token._type() == VARIABLE)
 	{
-		// std::cout<<"assignment_statement h ye toh\n";
 		node = assignment_statement();
 		eat(SEMI);
 	}
@@ -538,22 +529,18 @@ ASTNode Parser::statement()
 		node = If();
 	else if(current_token._type() == WHILE)
 		node = While();
-	// else node = empty();
-	else error();
+	else error(); // some unknown kind of statement
 	return node;
 }
 
 ASTNode Parser::assignment_statement()
 {
-	// std::cout<<"assignment_statement() called\n";
 	ASTNode left = variable();
 	eat(ASSIGN);
 	ASTNode right = expr();
 	ASTNode node(Token(ASSIGN, "="));
-	// node.show(0);
 	node.make_child(left);
 	node.make_child(right);
-	// node.show(0);
 	return node;
 }
 
@@ -564,26 +551,9 @@ ASTNode Parser::variable()
 	return node;
 }
 
-// ASTNode Parser::empty()
-// {
-// 	ASTNode node(current_token);
-// 	return node;
-// }
-
 ASTNode Parser::statement_list()
 {
 	ASTNode node(Token("STATEMENT_LIST", "STATEMENT_LIST"));
-	// node.make_child(statement());
-	// std::cout<<"statement_list called node is\n";
-	// node.show(0);
-	// while(current_token._type() == "EOF")
-	// {
-	// 	eat(SEMI);
-	// 	if(current_token._type() != "EOF")
-	// 		node.make_child(statement());
-	// 	else std::cout<<"Program parsed\n";
-
-	// }
 	while(current_token._type() != "EOF" and current_token._type() != RBRACKET)
 	{
 		node.make_child(statement());
@@ -631,12 +601,17 @@ ASTNode Parser::factor()
 		eat(STRING);
 		return node;
 	}
+	else if(current_token._type() == ENDL)
+	{
+		ASTNode node(current_token);
+		eat(ENDL);
+		return node;
+	}
 	else error();
 }
 
 ASTNode Parser::term()
 {
-	// std::cout<<"term called\n";
 	ASTNode node = factor();
 	while(true)
 	{		
@@ -791,13 +766,9 @@ ASTNode Parser::While()
 
 
 
-
-
-
-//Interpreter
-
-
-
+////////////////////////////////////////////////////////////////////////////////////////////
+//	INTERPRETER
+////////////////////////////////////////////////////////////////////////////////////////////
 
 class Interpreter
 {
@@ -813,9 +784,6 @@ public:
 	
 	Token visit(ASTNode node)
 	{
-		// std::cout<<"visit called node.type = "<<(node._token()._type())<<"   node.value = "<<(node._token()._value())<<std::endl;
-		
-
 		std::string result;
 
 		if(node._token()._type() == STATEMENT_LIST)
@@ -982,10 +950,12 @@ public:
 			bool flag = false;
 			for(auto it = str.begin(); it != str.end(); it++)
 			{
-				if((*it < 48 or *it > 57) and *it != '.')
+				if((*it < 48 or *it > 57) and *it != '.' and *it != '-')
 					flag = true;
 				if(*it == '.')
 					dec_count++;
+				if(it != str.begin() and *it == '-') // -4 will be considered integer and 4-5 will be considered string
+					flag = true;
 			}
 			//One decimal is allowed in integer, two decimal points means STRING
 			if(dec_count > 1)
@@ -1066,12 +1036,16 @@ public:
 			}
 			return temp;
 		}
+
+		if(node._token()._type() == ENDL)
+		{
+			return Token(STRING, "\n");
+		}
 	}
 
 	Token interpret()
 	{
 		ASTNode tree = parser.parse();
-		// return tree._token();
 		return visit(tree);
 	}
 
@@ -1084,18 +1058,22 @@ public:
 
 
 
-
+////////////////////////////////////////////////////////////////////////////////////////////
+//	main
+////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char const *argv[])
 {
-
+	// set reserved keywords
 	RESERVED_KEYWORDS.insert("write");
 	RESERVED_KEYWORDS.insert("read");
 	RESERVED_KEYWORDS.insert("if");
 	RESERVED_KEYWORDS.insert("else");
 	RESERVED_KEYWORDS.insert("while");
+	RESERVED_KEYWORDS.insert("endl");
 
-
+	// argv[1] stores name of file containing bird code
+	// if argv[2] == "details" then show internal details of interpretation
 	if(argc < 2)
 	{
 		std::cout<<"Please Enter name of file as commandline argument\n";
@@ -1126,7 +1104,7 @@ int main(int argc, char const *argv[])
 		tree.show(0);
 		std::cout<<"Starts Interpreting\n***************************************************\n";
 		Token result = interpreter.interpret();
-		std::cout<<"\n***************************************************\nStops Interpreting\n\n";
+		std::cout<<"***************************************************\nStops Interpreting\n\n";
 		std::cout<<"Status: "<<((result._value() == "0")?"Success\n":"Failed\n\n");		
 		std::cout<<"GLOBAL_SCOPE:\n";
 		for(auto it = GLOBAL_SCOPE.begin(); it!= GLOBAL_SCOPE.end(); it++)

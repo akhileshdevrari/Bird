@@ -1,0 +1,20 @@
+write("Enter an odd number"+endl);
+read(a);
+if(a%2 == 1)
+	write("yeah, you entered an odd number"+endl);
+else write("no, you entered even number"+endl);
+
+
+// Nested if-else //
+write("Enter an even number"+endl);
+read(a);
+if(a%2 == 0)
+{
+	write("Nooo, a = "+a+endl+"Enter spelling of apple"+endl);
+	read(b);
+	if(b=="apple")
+	{
+		write("yes, you can spell apple correctly"+endl);
+	}
+	else write("learn some spelling dude :("+endl);
+}
