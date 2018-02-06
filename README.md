@@ -12,6 +12,9 @@ Steps to use wings.cpp
 4. To see AST and internal details, provide command line argument "details" as argv[2].
 
 Commands:
+
 g++ -std=c++14 wings.cpp
+
 ./a.out bird
+
 ./a.out bird details
