@@ -5,6 +5,8 @@ Wings is the interpreter for "bird code".
 Currently we have only "input", "output", "comments", "assignments", "mathematical operators", "if/else" and "while" statements in Bird's grammer.
 For better understanding, code snippets are provided in /Examples/
 
+I learned a lot from this blog series https://ruslanspivak.com/lsbasi-part1/ and a good amount of my code/logic comes from there.
+
 Steps to use wings.cpp
 1. Create a file containing Bird code, (eg. bird in this case)
 2. Compile wings.cpp file with g++ -std=c++14
